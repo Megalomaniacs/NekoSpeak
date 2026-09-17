@@ -34,7 +34,7 @@ jobs:
 
           c = c.replace(
             'val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask)',
-            'val atBytes = ByteArray(inputs.batchAttentionMask.size) { if (inputs.batchAttentionMask[it]) 1.toByte() else 0.toByte() }\n            val attnTensor = OnnxTensor.createTensor(env, java.nio.ByteBuffer.wrap(atBytes), longArrayOf(2L, maxLen.toLong(), maxLen.toLong()), ai.onnxruntime.OnnxJavaType.BOOL)')
+            'val atBytes = ByteArray(inputs.batchAttentionMask.size) { if (inputs.batchAttentionMask[it]) 1.toByte() else 0.toByte() }\n            val attnTensor = OnnxTensor.createTensor(env, java.nio.ByteBuffer.wrap(atBytes), longArrayOf(2L, 1L, maxLen.toLong(), maxLen.toLong()), ai.onnxruntime.OnnxJavaType.BOOL)')
 
           c = c.replace(
             'val codesTensor = OnnxTensor.createTensor(env, codes)',
