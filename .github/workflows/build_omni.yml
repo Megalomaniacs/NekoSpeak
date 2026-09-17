@@ -23,18 +23,23 @@ jobs:
           import sys
           p = sys.argv[1]
           c = open(p).read()
+
           c = c.replace(
             'val inputIdsTensor = OnnxTensor.createTensor(env, bIds)',
             'val inputIdsTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(bIds), longArrayOf(2L, C.toLong(), maxLen.toLong()))')
+
           c = c.replace(
             'val audioMaskTensor = OnnxTensor.createTensor(env, inputs.batchAudioMask)',
-            'val audioMaskTensor = OnnxTensor.createTensor(env, inputs.batchAudioMask, longArrayOf(2L, maxLen.toLong()))')
+            'val amBytes = ByteArray(inputs.batchAudioMask.size) { if (inputs.batchAudioMask[it]) 1.toByte() else 0.toByte() }\n            val audioMaskTensor = OnnxTensor.createTensor(env, java.nio.ByteBuffer.wrap(amBytes), longArrayOf(2L, maxLen.toLong()), ai.onnxruntime.OnnxJavaType.BOOL)')
+
           c = c.replace(
             'val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask)',
-            'val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask, longArrayOf(2L, maxLen.toLong(), maxLen.toLong()))')
+            'val atBytes = ByteArray(inputs.batchAttentionMask.size) { if (inputs.batchAttentionMask[it]) 1.toByte() else 0.toByte() }\n            val attnTensor = OnnxTensor.createTensor(env, java.nio.ByteBuffer.wrap(atBytes), longArrayOf(2L, maxLen.toLong(), maxLen.toLong()), ai.onnxruntime.OnnxJavaType.BOOL)')
+
           c = c.replace(
             'val codesTensor = OnnxTensor.createTensor(env, codes)',
             'val codesTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(codes), longArrayOf(1L, C.toLong(), numTargetTokens.toLong()))')
+
           open(p, 'w').write(c)
           print('Patched!')
           PYEOF
