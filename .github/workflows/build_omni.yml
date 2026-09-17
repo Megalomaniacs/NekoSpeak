@@ -8,94 +8,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: fix/all-omnivoice-pocket
 
-      - name: Patch ModelRepository.kt
+      - name: Patch files
         run: |
           sed -i 's/120000/900000/g' app/src/main/java/com/nekospeak/tts/data/ModelRepository.kt
+          sed -i 's|include("armeabi-v7a", "arm64-v8a")|include("arm64-v8a")|' app/build.gradle.kts
+          sed -i 's/isUniversalApk = true/isUniversalApk = false/' app/build.gradle.kts
 
-      - name: Patch build.gradle.kts for arm64 only
-        run: |
-          python3 << 'PYEOF'
-          import re
-          path = "app/build.gradle.kts"
-          with open(path, 'r') as f:
-              content = f.read()
-          new = '''splits {
-            abi {
-                isEnable = true
-                reset()
-                include("arm64-v8a")
-                isUniversalApk = false
-            }
-        }'''
-          content = re.sub(r'splits\s*\{\s*abi\s*\{[^}]*\}\s*\}', new, content, count=1)
-          with open(path, 'w') as f:
-              f.write(content)
-          print("Patched build.gradle.kts")
+          P=app/src/main/java/com/nekospeak/tts/engine/OmniVoiceEngine.kt
+          python3 - "$P" << 'PYEOF'
+          import sys
+          p = sys.argv[1]
+          c = open(p).read()
+          c = c.replace(
+            'val inputIdsTensor = OnnxTensor.createTensor(env, bIds)',
+            'val inputIdsTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(bIds), longArrayOf(2L, C.toLong(), maxLen.toLong()))')
+          c = c.replace(
+            'val audioMaskTensor = OnnxTensor.createTensor(env, inputs.batchAudioMask)',
+            'val audioMaskTensor = OnnxTensor.createTensor(env, inputs.batchAudioMask, longArrayOf(2L, maxLen.toLong()))')
+          c = c.replace(
+            'val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask)',
+            'val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask, longArrayOf(2L, maxLen.toLong(), maxLen.toLong()))')
+          c = c.replace(
+            'val codesTensor = OnnxTensor.createTensor(env, codes)',
+            'val codesTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(codes), longArrayOf(1L, C.toLong(), numTargetTokens.toLong()))')
+          open(p, 'w').write(c)
+          print('Patched!')
           PYEOF
 
-      - name: Patch OmniVoiceEngine.kt
-        run: |
-          python3 << 'PYEOF'
-          path = "app/src/main/java/com/nekospeak/tts/engine/OmniVoiceEngine.kt"
-          with open(path, 'r') as f:
-              content = f.read()
-
-          old1 = """            val inputIdsTensor = OnnxTensor.createTensor(env, bIds)
-            val audioMaskTensor = OnnxTensor.createTensor(env, inputs.batchAudioMask)
-            val attnTensor = OnnxTensor.createTensor(env, inputs.batchAttentionMask)"""
-          new1 = """            val inputIdsTensor = OnnxTensor.createTensor(
-                env,
-                java.nio.LongBuffer.wrap(bIds),
-                longArrayOf(2L, C.toLong(), maxLen.toLong())
-            )
-            val audioMaskTensor = OnnxTensor.createTensor(
-                env,
-                inputs.batchAudioMask,
-                longArrayOf(2L, maxLen.toLong())
-            )
-            val attnTensor = OnnxTensor.createTensor(
-                env,
-                inputs.batchAttentionMask,
-                longArrayOf(2L, maxLen.toLong(), maxLen.toLong())
-            )"""
-          if old1 not in content:
-              raise SystemExit("ERROR: generateIterative block not found")
-          content = content.replace(old1, new1)
-
-          old2 = """        val codesTensor = OnnxTensor.createTensor(env, codes)"""
-          new2 = """        val codesTensor = OnnxTensor.createTensor(
-            env,
-            java.nio.LongBuffer.wrap(codes),
-            longArrayOf(1L, C.toLong(), numTargetTokens.toLong())
-        )"""
-          if old2 not in content:
-              raise SystemExit("ERROR: decodeTokens block not found")
-          content = content.replace(old2, new2)
-
-          with open(path, 'w') as f:
-              f.write(content)
-          print("Patched OmniVoiceEngine.kt")
-          PYEOF
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
+      - run: chmod +x gradlew
 
-      - name: Build Debug APK (arm64 only)
-        run: ./gradlew assembleDebug --no-daemon
+      - run: ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: app-debug-omni-arm64
           path: app/build/outputs/apk/debug/*.apk
