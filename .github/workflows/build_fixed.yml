@@ -1,0 +1,42 @@
+name: Build APK Fixed OmniVoice
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fix branch from upstream
+        uses: actions/checkout@v4
+        with:
+          repository: guan-tends/NekoSpeak
+          ref: fix/all-omnivoice-pocket
+
+      - name: Patch ModelRepository.kt
+        run: |
+          # Remove the huge encoder file from the download list
+          sed -i '/omnivoice-encoder-fixed.onnx/d' app/src/main/java/com/nekospeak/tts/data/ModelRepository.kt
+          # Increase download timeout from 2 minutes to 10 minutes
+          sed -i 's/120000/600000/g' app/src/main/java/com/nekospeak/tts/data/ModelRepository.kt
+          echo "Patched successfully"
+          grep -n "omnivoice" app/src/main/java/com/nekospeak/tts/data/ModelRepository.kt | head -n 20
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-fixed
+          path: app/build/outputs/apk/debug/*.apk
