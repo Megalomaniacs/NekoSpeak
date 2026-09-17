@@ -38,7 +38,7 @@ jobs:
 
           c = c.replace(
             'val codesTensor = OnnxTensor.createTensor(env, codes)',
-            'for (i in codes.indices) { if (codes[i] >= audioVocabSize.toLong()) codes[i] = 0L }\n        val codesTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(codes), longArrayOf(1L, C.toLong(), numTargetTokens.toLong()))')
+            'for (i in codes.indices) { if (codes[i] >= 1024L) codes[i] = 0L }\n        val codesTensor = OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(codes), longArrayOf(1L, C.toLong(), numTargetTokens.toLong()))')
 
           open(p, 'w').write(c)
           print('Patched!')
